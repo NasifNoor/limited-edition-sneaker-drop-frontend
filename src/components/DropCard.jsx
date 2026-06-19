@@ -7,7 +7,7 @@ export default function DropCard({ drop, selectedUser }) {
   const [left, setLeft] = useState(0);
   const [reservation, setReservation] = useState(null);
   useEffect(() => {
-    if (reservation) {
+    if (reservation || drop?.expiresAt) {
       const expiresAt = reservation?.data?.expiresAt || drop?.expiresAt;
       const calculateTimeLeft = () => {
         const remaining = Math.max(
@@ -24,7 +24,7 @@ export default function DropCard({ drop, selectedUser }) {
 
       return () => clearInterval(interval);
     }
-  }, [reservation]);
+  }, [reservation, drop?.expiresAt]);
 
   useEffect(() => {
     if (drop?.startTime) {
