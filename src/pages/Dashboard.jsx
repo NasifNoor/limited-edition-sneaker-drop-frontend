@@ -1,113 +1,106 @@
 import { useEffect, useState } from "react";
+import { getDrops } from "../services/drop.service";
+import { getUsers } from "../services/user.service";
+import DropCard from "../components/DropCard";
+import socket from "../socket";
 
 export default function Dashboard() {
   const [drops, setDrops] = useState([]);
+  console.log("🚀 ~ Dashboard ~ drops:", drops);
   const [users, setUsers] = useState([]);
   const [selectedUser, setSelectedUser] = useState(null);
-  const [reservation, setReservation] = useState(null);
-  const [timeLeft, setTimeLeft] = useState(0);
-  const [isReserved, setIsReserved] = useState(false);
 
   useEffect(() => {
-    fetchDrops();
     fetchUsers();
   }, []);
 
-  const fetchDrops = async () => {
-    const res = await fetch("http://localhost:5000/api/drops");
-    const data = await res.json();
-    setDrops(data?.data);
+  useEffect(() => {
+    if (selectedUser) {
+      fetchDrops(selectedUser.id);
+    }
+  }, [selectedUser]);
+
+  useEffect(() => {
+    socket.on("stock-updated", (data) => {
+      setDrops((prev) =>
+        prev.map((drop) =>
+          drop.id === data.dropId
+            ? data.userId === drop?.userId
+              ? {
+                  ...drop,
+                  purchaseList: data.lastBuyer
+                    ? [data.lastBuyer, ...drop.purchaseList].slice(0, 3)
+                    : drop.purchaseList,
+                  availableStock: data.availableStock,
+                  status: data.status === "ACTIVE",
+                }
+              : {
+                  ...drop,
+                  purchaseList: data.lastBuyer
+                    ? [data.lastBuyer, ...drop.purchaseList].slice(0, 3)
+                    : drop.purchaseList,
+                  availableStock: data.availableStock,
+                }
+            : drop,
+        ),
+      );
+    });
+
+    return () => {
+      socket.off("stock-updated");
+    };
+  }, []);
+
+  useEffect(() => {
+    socket.on("drop-live", (data) => {
+      console.log("🚀 ~ Dashboard ~ data:", data);
+      setDrops((prev) =>
+        prev.map((drop) =>
+          drop.id === data.dropId
+            ? {
+                ...drop,
+                isLive: data.isLive === "LIVE",
+              }
+            : drop,
+        ),
+      );
+    });
+
+    return () => {
+      socket.off("drop-live");
+    };
+  }, []);
+
+  const fetchDrops = async (userId) => {
+    try {
+      const data = await getDrops(userId);
+      setDrops(data?.data || []);
+    } catch (error) {
+      console.error(error);
+    }
   };
 
   const fetchUsers = async () => {
-    const res = await fetch("http://localhost:5000/api/users");
-    const data = await res.json();
-    setUsers(data?.data);
-  };
-
-  const handleReserve = async (dropId) => {
-    if (!selectedUser) {
-      alert("Please select a user first.");
-      return;
-    }
     try {
-      const res = await fetch("http://localhost:5000/api/reservations", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          userId: selectedUser.id,
-          dropId,
-        }),
-      });
-
-      if (res.ok) {
-        const response = await res.json();
-        setReservation(response.data);
-        setIsReserved(true);
-      }
+      const data = await getUsers();
+      setUsers(data?.data || []);
     } catch (error) {
-      console.error("Error reserving drop:", error);
-      alert("Failed to reserve the drop. Please try again.");
+      console.error(error);
     }
   };
-
-  useEffect(() => {
-    if (!reservation?.expiresAt) return;
-
-    const updateTimer = () => {
-      const remaining = new Date(reservation.expiresAt).getTime() - Date.now();
-
-      if (remaining <= 0) {
-        setTimeLeft(0);
-        return;
-      }
-
-      setTimeLeft(Math.floor(remaining / 1000));
-    };
-
-    updateTimer();
-
-    const interval = setInterval(updateTimer, 1000);
-
-    return () => clearInterval(interval);
-  }, [reservation]);
-
-  const minutes = Math.floor(timeLeft / 60);
-  const seconds = timeLeft % 60;
 
   return (
-    <div>
-      <h1>Limited Edition Sneaker Drop</h1>
+    <div className="pt-6 ">
+      <h2>Limited Edition Sneaker Drop</h2>
 
       {selectedUser ? (
-        <div className="p-4 rounded-md">
-          <h1 className="text-xl font-bold">
+        <div className="p-4 rounded-md ">
+          <h3 className="text-xl font-bold">
             Select User: {selectedUser.username}
-          </h1>
+          </h3>
 
           {drops.map((drop) => (
-            <div
-              key={drop.id}
-              className="d-flex justify-between p-4 border rounded-md mt-2 "
-              style={{ display: "flex", justifyContent: "space-between" }}
-            >
-              <h2>{drop.name}</h2>
-              <p>Stock: {drop.availableStock}</p>
-              <button
-                onClick={() => handleReserve(drop.id)}
-                className="bg-blue-500 text-white py-2 px-4 rounded-md hover:bg-blue-600"
-              >
-                {reservation ? (
-                  <>
-                    Purchase{minutes}:{String(seconds).padStart(2, "0")}
-                  </>
-                ) : (
-                  "Reserve"
-                )}
-              </button>
-            </div>
+            <DropCard key={drop.id} drop={drop} selectedUser={selectedUser} />
           ))}
         </div>
       ) : (

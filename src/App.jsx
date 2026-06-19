@@ -1,13 +1,19 @@
-import { useState } from "react";
-import reactLogo from "./assets/react.svg";
-import viteLogo from "./assets/vite.svg";
-import heroImg from "./assets/hero.png";
+import { useEffect, useState } from "react";
 import "./App.css";
 import "./index.css";
 import Dashboard from "./pages/Dashboard";
+import socket from "./socket";
 
 function App() {
-  const [count, setCount] = useState(0);
+  useEffect(() => {
+    socket.on("connect", () => {
+      console.log("Connected:", socket.id);
+    });
+
+    return () => {
+      socket.off("connect");
+    };
+  }, []);
 
   return <Dashboard />;
 }
