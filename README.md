@@ -84,6 +84,14 @@ src/
 └── main.jsx
 ```
 
+## Clone Project
+
+```bash
+git clone https://github.com/NasifNoor/limited-edition-sneaker-drop-frontend.git
+
+cd limited-edition-sneaker-drop-frontend
+```
+
 ## Environment Variables
 
 Create a `.env` file:
